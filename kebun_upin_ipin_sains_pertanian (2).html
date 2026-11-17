@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kebun Upin & Ipin: Sains Pertanian 3D</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #BAE6FD;
+            touch-action: none; /* Prevent scroll on mobile */
+        }
+        .font-cartoon { font-family: 'Fredoka', sans-serif; }
+        
+        .btn-cartoon {
+            transition: transform 0.1s, filter 0.1s;
+        }
+        .btn-cartoon:active {
+            transform: scale(0.95) translateY(4px);
+            filter: brightness(0.9);
+        }
+
+        /* Character Grid selection style */
+        .char-card {
+            border: 4px solid transparent;
+            transition: all 0.2s;
+        }
+        .char-card.selected {
+            border-color: #F59E0B;
+            background-color: #FEF3C7;
+            transform: scale(1.05);
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 10;
+        }
+
+        /* Joystick Styles */
+        #joystick-zone {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.3);
+            border: 4px solid rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #joystick-knob {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            position: absolute;
+            pointer-events: none;
+        }
+
+        /* Action Button */
+        #btn-interact {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(to top, #F59E0B, #FCD34D);
+            border: 4px solid white;
+            border-radius: 50%;
+            font-size: 2rem;
+            z-index: 30;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.3);
+            display: none; /* Hidden by default, shown when near object */
+            align-items: center;
+            justify-content: center;
+            animation: bounce 1s infinite alternate;
+        }
+
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-10px); }
+        }
+
+        /* UI Overlays z-index */
+        #game-ui { z-index: 20; position: absolute; top:0; left:0; width: 100%; pointer-events: none; }
+        .pointer-events-auto { pointer-events: auto; }
+        .modal { z-index: 50; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. MAIN MENU SCREEN -->
+    <div id="screen-menu" class="absolute inset-0 z-50 bg-gradient-to-b from-sky-300 to-green-400 flex flex-col items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white/90 backdrop-blur-md max-w-2xl w-full rounded-3xl border-8 border-yellow-400 shadow-2xl p-6 text-center relative">
+            
+            <!-- Butang Kongsi di Bucu Atas Kanan -->
+            <button onclick="shareGame()" class="absolute top-4 right-4 btn-cartoon bg-sky-500 hover:bg-sky-600 text-white p-3 rounded-full shadow-lg border-2 border-white z-50 flex items-center justify-center" title="Kongsi Game Ini!">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-5.368m0 5.368l5.657 3.394m-5.657-3.394l5.657-3.394m0 0a3 3 0 115.368 0m-5.368 0a3 3 0 10-5.368 0M15.368 15.368a3 3 0 115.368 0 3 3 0 10-5.368 0z"></path></svg>
+            </button>
+
+            <h1 class="font-cartoon text-4xl text-green-700 drop-shadow-md mb-2 mt-4">🌱 Kebun Upin & Ipin</h1>
+            <p class="text-sm font-bold text-amber-600 bg-amber-100 px-4 py-1 rounded-full inline-block mb-6">Misi Sains Pertanian</p>
+            
+            <div class="space-y-4 text-left">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-bold text-stone-700 mb-1">Nama Pemain:</label>
+                        <input type="text" id="input-name" placeholder="Cth: Aiman" class="w-full border-4 border-stone-200 rounded-xl px-4 py-2 font-bold focus:border-green-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-stone-700 mb-1">Umur:</label>
+                        <input type="number" id="input-age" placeholder="10" class="w-full border-4 border-stone-200 rounded-xl px-4 py-2 font-bold focus:border-green-500 outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-stone-700 mb-2">Pilih Watak Anda:</label>
+                    <div class="grid grid-cols-4 sm:grid-cols-7 gap-2" id="character-selection">
+                        <!-- Upin -->
+                        <div class="char-card selected bg-stone-100 p-2 rounded-xl text-center cursor-pointer" onclick="selectChar('upin', this)">
+                            <div class="text-2xl mb-1">👦</div>
+                            <div class="text-xs font-bold">Upin</div>
+                        </div>
+                        <!-- Ipin -->
+                        <div class="char-card bg-stone-100 p-2 rounded-xl text-center cursor-pointer" onclick="selectChar('ipin', this)">
+                            <div class="text-2xl mb-1">👶</div>
+                            <div class="text-xs font-bold">Ipin</div>
+                        </div>
+                        <!-- Mail -->
+                        <div class="char-card bg-stone-100 p-2 rounded-xl text-center cursor-pointer" onclick="selectChar('mail', this)">
+                            <div class="text-2xl mb-1">🤑</div>
+                            <div class="text-xs font-bold">Mail</div>
+                        </div>
+                        <!-- Mei Mei -->
+                        <div class="char-card bg-stone-100 p-2 rounded-xl text-center cursor-pointer" onclick="selectChar('meimei', this)">
+                            <div class="text-2xl mb-1">👧🏻</div>
+                            <div class="text-xs font-bold">Mei Mei</div>
+                        </div>
+                        <!-- Jarjit -->
+                        <div class="char-card bg-stone-100 p-2 rounded-xl text-center cursor-pointer" onclick="selectChar('jarjit', this)">
+                            <div class="text-2xl mb-1">👳🏽‍♂️</div>
+                            <div class="text-xs font-bold">Jarjit</div>
+                        </div>
+                        <!-- Kak Ros -->
+                        <div class="char-card bg-stone-100 p-2 rounded-xl text-center cursor-pointer" onclick="selectChar('kakros', this)">
+                            <div class="text-2xl mb-1">👩🏻</div>
+                            <div class="text-xs font-bold">Kak Ros</div>
+                        </div>
+                        <!-- Opah -->
+                        <div class="char-card bg-stone-100 p-2 rounded-xl text-center cursor-pointer" onclick="selectChar('opah', this)">
+                            <div class="text-2xl mb-1">👵🏻</div>
+                            <div class="text-xs font-bold">Opah</div>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="startGame()" class="btn-cartoon w-full bg-gradient-to-b from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white font-cartoon text-2xl py-4 rounded-2xl border-4 border-green-800 shadow-xl mt-6">
+                    🎮 MULA MAIN!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. GAME SCREEN (3D + UI) -->
+    <div id="screen-game" class="hidden">
+        <!-- 3D Canvas -->
+        <div id="canvas-container"></div>
+
+        <!-- Heads Up Display (HUD) -->
+        <div id="game-ui">
+            <div class="p-4 flex flex-wrap gap-2 justify-between items-start">
+                <div class="bg-white/90 backdrop-blur-sm border-4 border-yellow-400 p-3 rounded-2xl shadow-lg pointer-events-auto flex items-center gap-3">
+                    <div id="ui-avatar" class="text-3xl bg-yellow-200 rounded-full w-12 h-12 flex items-center justify-center border-2 border-yellow-500">👦</div>
+                    <div>
+                        <div id="ui-name" class="font-cartoon font-bold text-lg text-stone-800 leading-tight">Nama</div>
+                        <div class="text-sm font-bold text-amber-600">Markah: <span id="ui-score">0</span></div>
+                    </div>
+                </div>
+                
+                <div class="flex gap-2">
+                    <button onclick="toggleLeaderboard()" class="bg-purple-500/90 backdrop-blur-sm border-4 border-purple-700 p-3 rounded-2xl shadow-lg text-white font-cartoon text-xl pointer-events-auto btn-cartoon flex items-center shadow-purple-500/50">
+                        🏆 Juara
+                    </button>
+                    <div class="bg-blue-500/90 backdrop-blur-sm border-4 border-blue-700 p-3 rounded-2xl shadow-lg text-center pointer-events-auto">
+                        <div class="text-xs text-white font-bold uppercase">Tahap</div>
+                        <div id="ui-level" class="font-cartoon text-2xl text-yellow-300 drop-shadow-md">1</div>
+                        <div class="text-xs text-white font-bold mt-1">Batas: <span id="ui-progress">0/4</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div id="joystick-zone">
+            <div id="joystick-knob"></div>
+        </div>
+        <button id="btn-interact" class="btn-cartoon pointer-events-auto" onclick="handleInteract()">✋</button>
+        <div id="hint-text" class="absolute bottom-[130px] right-[40px] text-white font-bold bg-black/60 px-3 py-1 rounded-full hidden z-30 pointer-events-none">E / Sentuh</div>
+    </div>
+
+    <!-- 3. MODALS (Popups) -->
+    <!-- Action Menu Modal -->
+    <div id="modal-action" class="modal hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-[#FFFBEB] w-full max-w-sm rounded-3xl border-8 border-sky-500 shadow-2xl p-5 relative">
+            <button onclick="closeModal('modal-action')" class="absolute -top-4 -right-4 bg-red-500 text-white w-10 h-10 rounded-full font-bold text-xl border-4 border-white shadow-lg btn-cartoon">X</button>
+            <h2 id="action-title" class="font-cartoon text-2xl text-sky-800 text-center mb-4">Tindakan</h2>
+            <div id="action-buttons" class="space-y-3">
+                <!-- Buttons injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Quiz Modal -->
+    <div id="modal-quiz" class="modal hidden fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-3xl border-8 border-amber-500 shadow-2xl p-6 text-center">
+            <div class="text-4xl mb-2">🤔</div>
+            <h2 class="font-cartoon text-xl text-amber-700 mb-4">Masalah Pertanian!</h2>
+            <p id="quiz-question" class="font-bold text-stone-700 text-lg mb-6 leading-snug">Soalan di sini...</p>
+            <div id="quiz-options" class="space-y-3">
+                <!-- Options injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Level Up Modal -->
+    <div id="modal-levelup" class="modal hidden fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 text-center">
+        <div class="bg-gradient-to-b from-green-400 to-emerald-600 w-full max-w-md rounded-3xl border-8 border-yellow-400 shadow-2xl p-8 transform scale-95 animate-bounce-in">
+            <div class="text-6xl mb-4">🌟</div>
+            <h2 class="font-cartoon text-4xl text-white drop-shadow-lg mb-2">TAHAP SELESAI!</h2>
+            <p class="text-white font-bold text-lg mb-6">Kebun makin membesar, cabaran makin susah!</p>
+            <button onclick="nextLevel()" class="btn-cartoon bg-yellow-400 text-yellow-900 font-cartoon font-bold text-2xl px-8 py-3 rounded-full border-4 border-white shadow-xl">
+                TERUSKAN 🚀
+            </button>
+        </div>
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div id="modal-leaderboard" class="modal hidden fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-[#FDF4FF] w-full max-w-md rounded-3xl border-8 border-purple-500 shadow-2xl p-6 relative flex flex-col max-h-[80vh]">
+            <button onclick="closeModal('modal-leaderboard')" class="absolute -top-4 -right-4 bg-red-500 text-white w-10 h-10 rounded-full font-bold text-xl border-4 border-white shadow-lg btn-cartoon">X</button>
+            <h2 class="font-cartoon text-3xl text-purple-700 text-center mb-4">🏆 Papan Juara</h2>
+            <div id="leaderboard-list" class="space-y-2 overflow-y-auto pr-2 flex-1">
+                <div class="text-center text-gray-500 font-bold py-4">Memuatkan data awan...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-black/80 text-white font-bold px-6 py-3 rounded-full shadow-2xl z-50 transition-opacity duration-300 opacity-0 pointer-events-none">
+        Mesej
+    </div>
+
+    <!-- ================= LOGIK PERMAINAN (JAVASCRIPT) ================= -->
+    <script>
+        // --- 1. GAME DATA & STATE ---
+        let selectedCharId = 'upin';
+        let playerName = 'Pemain';
+        
+        let state = {
+            level: 1,
+            score: 0,
+            harvestedCount: 0,
+            totalPlots: 4
+        };
+
+        const CROPS = {
+            sawi: { name: 'Sawi', color: 0x4ADE80, matureTime: 2 },
+            cili: { name: 'Cili', color: 0xEF4444, matureTime: 3 },
+            tomato: { name: 'Tomato', color: 0xF87171, matureTime: 3 },
+            jagung: { name: 'Jagung', color: 0xFBBF24, matureTime: 4 }
+        };
+
+        // Quiz Database (Filtered so they don't repeat)
+        let plantQuestions = [
+            { q: "Nama saintifik bagi Sawi ialah...", options: ["Brassica rapa", "Capsicum annuum", "Zea mays"], ans: 0 },
+            { q: "Pokok cili layu dan daun kuning. Apakah baja yang paling sesuai?", options: ["Baja Kalsium", "Baja Nitrogen (N)", "Garam biasa"], ans: 1 },
+            { q: "Serangga Afid menyerang daun tomato! Kaedah organik terbaik ialah:", options: ["Sembur racun sintetik", "Lepaskan Kumbang Kura-kura", "Biar sahaja"], ans: 1 },
+            { q: "Bunga tahi ayam (Marigold) ditanam di tepi batas untuk...", options: ["Nampak cantik", "Menghalau perosak secara semula jadi", "Menyerap air"], ans: 1 },
+            { q: "Nama saintifik bagi Jagung ialah...", options: ["Zea mays", "Solanum lycopersicum", "Oryza sativa"], ans: 0 },
+            { q: "Tanah terlalu berasid (pH rendah). Apa perlu ditabur?", options: ["Kapur Pertanian (Dolomite)", "Besi", "Plastik"], ans: 0 }
+        ];
+
+        let poultryQuestions = [
+            { q: "Ayam murung, najis hijau cair dan tidak lalu makan. Penyakit apakah ini?", options: ["Selesema Burung", "Penyakit Sampar (Newcastle Disease)", "Demam biasa"], ans: 1 },
+            { q: "Kenapa ayam penelur perlukan kalsium (serbuk cengkerang) dalam makanan?", options: ["Supaya daging sedap", "Membentuk cengkerang telur yang keras", "Supaya bulu lebat"], ans: 1 },
+            { q: "Apakah fungsi lampu pemanas dalam reban anak ayam (didik)?", options: ["Untuk ayam membaca", "Mengekalkan suhu badan kerana tiada bulu tebal", "Menghalau nyamuk"], ans: 1 },
+            { q: "Makanan alternatif yang kaya protein untuk ayam organik ialah:", options: ["Lalat Askar Hitam (BSF)", "Sisa plastik", "Batu kerikil"], ans: 0 }
+        ];
+
+        let ruminantQuestions = [
+            { q: "Sapi (Lembu) mempunyai perut yang terbahagi kepada 4 bahagian. Bahagian manakah yang berfungsi sebagai perut sebenar?", options: ["Abomasum", "Rumen", "Omasum"], ans: 0 },
+            { q: "Apakah jenis rumput yang kaya protein dan sangat sesuai ditanam untuk diet Sapi?", options: ["Rumput Napier", "Rumpai Laut", "Lalang"], ans: 0 },
+            { q: "Jika Sapi diserang penyakit Kembung Perut (Bloat), apakah kemungkinan puncanya?", options: ["Terlalu banyak makan kekacang segar (legum)", "Berjemur di tengah panas", "Kurang minum air"], ans: 0 },
+            { q: "Haiwan Ruminan bermaksud haiwan yang...", options: ["Memamah biak (mengunyah semula makanan)", "Bertelur di darat", "Makan daging sahaja"], ans: 0 }
+        ];
+
+        let chickQuestions = [
+            { q: "CABARAN ANAK AYAM: Apakah makanan yang paling sesuai untuk anak ayam yang baru menetas?", options: ["Dedak Permulaan (Starter Crumble)", "Sisa Makanan Dapur", "Biji Jagung Penuh"], ans: 0 },
+            { q: "CABARAN ANAK AYAM: Berapakah suhu yang sesuai untuk kotak eraman (brooder) pada minggu pertama?", options: ["32-35°C (Agak Panas)", "15-20°C (Sejuk)", "45-50°C (Terlalu Panas)"], ans: 0 },
+            { q: "CABARAN ANAK AYAM: Kenapa air gula atau vitamin sering diberikan kepada anak ayam sebaik menetas?", options: ["Memberi tenaga & kurangkan stres", "Supaya cepat bertelur", "Jadikan bulu cantik memanjang"], ans: 0 }
+        ];
+
+        let calfQuestions = [
+            { q: "CABARAN ANAK LEMBU: Apakah susu pertama yang WAJIB diminum oleh anak lembu baru lahir untuk antibodi?", options: ["Kolostrum", "Susu Manis", "Air Kosong"], ans: 0 },
+            { q: "CABARAN ANAK LEMBU: Umur berapakah anak lembu biasanya mula dicerai susu (weaning) dan diajar makan rumput?", options: ["3 hingga 6 bulan", "1 minggu", "2 tahun"], ans: 0 },
+            { q: "CABARAN ANAK LEMBU: Apakah rawatan awal pada anak lembu yang baru lahir untuk elak jangkitan kuman?", options: ["Sapu iodin pada tali pusat", "Potong tanduk", "Mandikan dengan air sejuk"], ans: 0 }
+        ];
+
+        // --- 1B. FIREBASE MULTIPLAYER & CLOUD SAVE ---
+        let db, auth, doc, setDoc, onSnapshot, collection;
+        let userId = null;
+        let appId = typeof __app_id !== 'undefined' ? __app_id : 'kebun-upin-ipin';
+        let firebaseConfig = null;
+        try { firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null; } catch(e){}
+        
+        let leaderboardData = [];
+        let otherPlayers = {}; // Menyimpan data posisi watak rakan-rakan yang sedang online
+
+        async function initFirebase() {
+            if (!firebaseConfig) return;
+            try {
+                // Muat turun Firebase secara dinamik supaya tidak merosakkan skop fail asal
+                const fbApp = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js");
+                const fbAuth = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
+                const fbDb = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+
+                const app = fbApp.initializeApp(firebaseConfig);
+                auth = fbAuth.getAuth(app);
+                db = fbDb.getFirestore(app);
+                doc = fbDb.doc;
+                setDoc = fbDb.setDoc;
+                onSnapshot = fbDb.onSnapshot;
+                collection = fbDb.collection;
+
+                const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                if (token) {
+                    await fbAuth.signInWithCustomToken(auth, token);
+                } else {
+                    await fbAuth.signInAnonymously(auth);
+                }
+                userId = auth.currentUser.uid;
+                
+                startCloudSync();
+                saveScoreToCloud(); // Simpan nama dan markah awal
+            } catch(e) {
+                console.error("Gagal menyambung ke awan Multiplayer:", e);
+            }
+        }
+
+        function startCloudSync() {
+            if (!userId || !db) return;
+            
+            // 1. Dengar Papan Juara Masa Nyata
+            const lbRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+            onSnapshot(lbRef, (snapshot) => {
+                leaderboardData = [];
+                snapshot.forEach(d => leaderboardData.push({id: d.id, ...d.data()}));
+                // Susun ikut markah tertinggi di Client-side (Peraturan #2)
+                leaderboardData.sort((a,b) => b.score - a.score);
+                renderLeaderboardUI();
+            }, (e) => console.error(e));
+
+            // 2. Dengar pergerakan Pemain Lain (Multiplayer)
+            const playersRef = collection(db, 'artifacts', appId, 'public', 'data', 'players');
+            onSnapshot(playersRef, (snapshot) => {
+                const now = Date.now();
+                snapshot.forEach(d => {
+                    if (d.id === userId) return; // Abaikan diri sendiri
+                    const data = d.data();
+                    
+                    // Jika pemain tidak bergerak lebih 60 saat, buang dari skrin
+                    if (now - data.timestamp > 60000) { 
+                        if (otherPlayers[d.id]) {
+                            scene.remove(otherPlayers[d.id].mesh);
+                            delete otherPlayers[d.id];
+                        }
+                        return;
+                    }
+
+                    // Tambah atau kemaskini lokasi rakan di kebun
+                    if (!otherPlayers[d.id]) {
+                        const mesh = buildPlayerModel(data.charId);
+                        scene.add(mesh);
+                        otherPlayers[d.id] = { mesh, targetX: data.x, targetZ: data.z, targetR: data.r };
+                    } else {
+                        otherPlayers[d.id].targetX = data.x;
+                        otherPlayers[d.id].targetZ = data.z;
+                        otherPlayers[d.id].targetR = data.r;
+                    }
+                });
+            }, (e) => console.error(e));
+        }
+
+        function saveScoreToCloud() {
+            if (!userId || !db) return;
+            const ref = doc(db, 'artifacts', appId, 'public', 'data', 'leaderboard', userId);
+            setDoc(ref, {
+                name: playerName,
+                score: state.score,
+                charId: selectedCharId,
+                timestamp: Date.now()
+            }).catch(e => console.error(e));
+        }
+
+        let lastSyncTime = 0;
+        function syncPlayerPosition(timeSec) {
+            if (!userId || !db) return;
+            if (timeSec - lastSyncTime > 1.5) { // Hantar koordinat pergerakan kita setiap 1.5 saat
+                lastSyncTime = timeSec;
+                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'players', userId);
+                setDoc(ref, {
+                    charId: selectedCharId,
+                    x: player.position.x,
+                    z: player.position.z,
+                    r: player.rotation.y,
+                    timestamp: Date.now()
+                }).catch(e => {});
+            }
+        }
+
+        function toggleLeaderboard() {
+            openModal('modal-leaderboard');
+            renderLeaderboardUI();
+        }
+
+        function renderLeaderboardUI() {
+            const list = document.getElementById('leaderboard-list');
+            if (!list) return;
+            
+            if (leaderboardData.length === 0) {
+                list.innerHTML = `<div class="text-center text-gray-500 font-bold py-4">Belum ada sesiapa bermain. Kongsikan game ini!</div>`;
+                return;
+            }
+            
+            const avatars = { upin:'👦', ipin:'👶', mail:'🤑', meimei:'👧🏻', jarjit:'👳🏽‍♂️', kakros:'👩🏻', opah:'👵🏻' };
+            list.innerHTML = leaderboardData.map((d, i) => `
+                <div class="flex items-center justify-between p-3 rounded-xl border-2 mb-2 ${d.id === userId ? 'bg-purple-100 border-purple-400' : 'bg-white border-stone-200'}">
+                    <div class="flex items-center gap-3">
+                        <span class="font-bold ${i < 3 ? 'text-amber-500' : 'text-gray-400'} w-5">${i + 1}.</span>
+                        <div class="text-2xl bg-stone-100 rounded-full w-10 h-10 flex items-center justify-center border-2 border-gray-300">
+                            ${avatars[d.charId] || '👦'}
+                        </div>
+                        <span class="font-bold text-stone-700 truncate max-w-[120px]">${d.name}</span>
+                    </div>
+                    <div class="font-cartoon text-xl text-green-600 font-bold">${d.score} <span class="text-sm">pts</span></div>
+                </div>
+            `).join('');
+        }
+
+        // --- 2. UI FUNCTIONS ---
+        function selectChar(id, el) {
+            selectedCharId = id;
+            document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
+        }
+
+        // Fungsi Kongsi (Share)
+        function shareGame() {
+            const shareData = {
+                title: 'Kebun Upin & Ipin 3D',
+                text: 'Jom main game Kebun Upin & Ipin! Boleh tanam sayur, bela ayam & lembu secara 3D.',
+                url: window.location.href
+            };
+
+            if (navigator.share && window.location.protocol === 'https:') {
+                navigator.share(shareData).catch(err => console.log('Ralat berkongsi:', err));
+            } else {
+                // Jika browser tak sokong (atau di PC), copy link ke clipboard
+                const dummy = document.createElement('input');
+                document.body.appendChild(dummy);
+                dummy.value = window.location.href;
+                dummy.select();
+                document.execCommand('copy');
+                document.body.removeChild(dummy);
+                showToast('🔗 Pautan (Link) disalin! Boleh Paste di WhatsApp.');
+            }
+        }
+
+        function startGame() {
+            let n = document.getElementById('input-name').value.trim();
+            if(n) playerName = n;
+            
+            document.getElementById('screen-menu').classList.add('hidden');
+            document.getElementById('screen-game').classList.remove('hidden');
+            
+            // Set HUD
+            document.getElementById('ui-name').textContent = playerName;
+            const avatars = { upin:'👦', ipin:'👶', mail:'🤑', meimei:'👧🏻', jarjit:'👳🏽‍♂️', kakros:'👩🏻', opah:'👵🏻' };
+            document.getElementById('ui-avatar').textContent = avatars[selectedCharId];
+            
+            initFirebase(); // Mulakan Multiplayer di awan
+            init3D();
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.opacity = '1';
+            setTimeout(() => t.style.opacity = '0', 3000);
+        }
+
+        function updateHUD() {
+            document.getElementById('ui-score').textContent = state.score;
+            document.getElementById('ui-level').textContent = state.level;
+            document.getElementById('ui-progress').textContent = `${state.harvestedCount}/${state.totalPlots}`;
+            saveScoreToCloud(); // Kemaskini markah ke Papan Juara
+        }
+
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        // --- 3. THREE.JS ENGINE ---
+        let scene, camera, renderer, player, clock;
+        let plots = []; 
+        let interactiveObjects = []; 
+        let nearestObject = null;
+        let chickenMeshes = []; // Simpan data animasi ayam
+        let cowMesh = null; // Simpan data animasi lembu
+
+        // Joystick Input
+        let moveVector = new THREE.Vector2(0,0);
+        let keyState = {};
+
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+            
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xBAE6FD); // Sky blue
+            scene.fog = new THREE.Fog(0xBAE6FD, 10, 50);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambient);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(10, 20, 10);
+            dirLight.castShadow = true;
+            dirLight.shadow.camera.left = -20;
+            dirLight.shadow.camera.right = 20;
+            dirLight.shadow.camera.top = 20;
+            dirLight.shadow.camera.bottom = -20;
+            scene.add(dirLight);
+
+            // Build World Elements
+            buildEnvironment();
+            buildFences();
+            buildPlots(state.level);
+            buildChickens();
+            buildCow();
+            
+            // Build Player
+            player = buildPlayerModel(selectedCharId);
+            player.position.set(0, 0, 5);
+            scene.add(player);
+
+            clock = new THREE.Clock();
+
+            // Event Listeners
+            window.addEventListener('resize', onWindowResize);
+            document.addEventListener('keydown', e => { keyState[e.code] = true; checkInteractionKey(e); });
+            document.addEventListener('keyup', e => keyState[e.code] = false);
+            setupJoystick();
+
+            animate();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- 4. PROCEDURAL WORLD BUILDING ---
+        function buildEnvironment() {
+            const groundGeo = new THREE.PlaneGeometry(100, 100);
+            const groundMat = new THREE.MeshLambertMaterial({ color: 0x86EFAC }); // Grass green
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI/2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+        }
+
+        function buildFences() {
+            const fenceGroup = new THREE.Group();
+            const woodMat = new THREE.MeshLambertMaterial({ color: 0x8B5A2B }); // Warna Kayu Pagar
+            
+            const postGeo = new THREE.BoxGeometry(0.4, 1.5, 0.4);
+            const railGeoX = new THREE.BoxGeometry(32.4, 0.2, 0.1); 
+            const railGeoZ = new THREE.BoxGeometry(0.1, 0.2, 32.4);
+
+            // Tiang pagar (Posts)
+            for(let i = -16; i <= 16; i += 4) {
+                // Atas & Bawah (Paksi Z)
+                const post1 = new THREE.Mesh(postGeo, woodMat); post1.position.set(i, 0.75, -16); post1.castShadow = true;
+                const post2 = new THREE.Mesh(postGeo, woodMat); post2.position.set(i, 0.75, 16); post2.castShadow = true;
+                fenceGroup.add(post1, post2);
+                
+                // Kiri & Kanan (Paksi X - elak tindih bucu)
+                if (i > -16 && i < 16) {
+                    const post3 = new THREE.Mesh(postGeo, woodMat); post3.position.set(-16, 0.75, i); post3.castShadow = true;
+                    const post4 = new THREE.Mesh(postGeo, woodMat); post4.position.set(16, 0.75, i); post4.castShadow = true;
+                    fenceGroup.add(post3, post4);
+                }
+            }
+
+            // Papan kayu mendatar (Rails)
+            const railHeights = [0.5, 1.1];
+            railHeights.forEach(h => {
+                const railN = new THREE.Mesh(railGeoX, woodMat); railN.position.set(0, h, -16); railN.castShadow = true;
+                const railS = new THREE.Mesh(railGeoX, woodMat); railS.position.set(0, h, 16); railS.castShadow = true;
+                const railE = new THREE.Mesh(railGeoZ, woodMat); railE.position.set(16, h, 0); railE.castShadow = true;
+                const railW = new THREE.Mesh(railGeoZ, woodMat); railW.position.set(-16, h, 0); railW.castShadow = true;
+                fenceGroup.add(railN, railS, railE, railW);
+            });
+
+            scene.add(fenceGroup);
+        }
+
+        function buildPlots(level) {
+            plots.forEach(p => scene.remove(p.mesh));
+            plots = [];
+            interactiveObjects = interactiveObjects.filter(obj => obj.type !== 'plot');
+
+            state.totalPlots = 2 + (level * 2); 
+            
+            const plotGeo = new THREE.BoxGeometry(2, 0.2, 3);
+            const plotMat = new THREE.MeshLambertMaterial({ color: 0x5C4033 }); 
+
+            let startX = -((state.totalPlots/2) * 2.5) / 2 + 1; 
+
+            for(let i=0; i<state.totalPlots; i++) {
+                const mesh = new THREE.Mesh(plotGeo, plotMat);
+                mesh.position.set(startX + (i * 2.5), 0.1, 0);
+                mesh.receiveShadow = true;
+                scene.add(mesh);
+
+                let plotData = {
+                    id: i,
+                    type: 'plot',
+                    mesh: mesh,
+                    state: 'empty', 
+                    cropType: null,
+                    age: 0,
+                    plantMesh: null
+                };
+                plots.push(plotData);
+                interactiveObjects.push(plotData);
+            }
+        }
+
+        // --- 4B. MODEL AYAM SEBENAR ---
+        function createChickenModel(primaryColor) {
+            const group = new THREE.Group();
+            const bodyMat = new THREE.MeshLambertMaterial({ color: primaryColor });
+            const redMat = new THREE.MeshLambertMaterial({ color: 0xFF0000 });
+            const beakMat = new THREE.MeshLambertMaterial({ color: 0xFFA500 }); // Oren
+            const blackMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+            // Badan (Body)
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.6), bodyMat);
+            body.position.y = 0.3;
+            body.castShadow = true;
+            group.add(body);
+
+            // Kepala (Head)
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), bodyMat);
+            head.position.set(0, 0.6, 0.3);
+            head.castShadow = true;
+            group.add(head);
+
+            // Paruh (Beak)
+            const beak = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.2, 4), beakMat);
+            beak.rotation.x = Math.PI / 2;
+            beak.position.set(0, 0.6, 0.5);
+            group.add(beak);
+
+            // Pial / Mahkota (Comb)
+            const comb = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.15, 0.2), redMat);
+            comb.position.set(0, 0.8, 0.3);
+            group.add(comb);
+
+            // Ekor (Tail)
+            const tail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.3, 0.2), bodyMat);
+            tail.position.set(0, 0.5, -0.3);
+            tail.rotation.x = -Math.PI / 4;
+            group.add(tail);
+
+            // Mata (Eyes)
+            const eyeR = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.05), blackMat);
+            eyeR.position.set(0.16, 0.65, 0.35);
+            const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.05), blackMat);
+            eyeL.position.set(-0.16, 0.65, 0.35);
+            group.add(eyeR, eyeL);
+
+            // Parameter Animasi Mematuk (Pecking)
+            group.userData = {
+                peckSpeed: 3 + Math.random() * 2,
+                peckOffset: Math.random() * Math.PI * 2
+            };
+
+            return group;
+        }
+
+        function buildChickens() {
+            const chickenGroup = new THREE.Group();
+            chickenGroup.position.set(6, 0, -6);
+            scene.add(chickenGroup);
+
+            // Kosongkan array lama jika ada
+            chickenMeshes = [];
+
+            // 3 Ayam Biasa berlainan warna
+            const chickenData = [
+                { color: 0x222222 }, // Hitam
+                { color: 0x8B4513 }, // Coklat
+                { color: 0xFFFFFF }  // Putih
+            ];
+            
+            chickenData.forEach((data, idx) => {
+                const mesh = createChickenModel(data.color);
+                // Tabur ayam dalam bulatan
+                mesh.position.set(Math.cos(idx * 2) * 1.5, 0, Math.sin(idx * 2) * 1.5);
+                mesh.rotation.y = -Math.PI/4 + (Math.random() * 2); // Pandang arah rawak
+                chickenGroup.add(mesh);
+                chickenMeshes.push(mesh);
+            });
+
+            // Kotak halimunan untuk butang interaksi (E)
+            const hitBox = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 4), new THREE.MeshBasicMaterial({visible: false}));
+            hitBox.position.set(0, 1, 0);
+            chickenGroup.add(hitBox);
+
+            let poultryData = {
+                id: 'chickens',
+                type: 'chicken',
+                mesh: chickenGroup,
+                state: 'growing',
+                stage: 0,
+                maxStage: 2 // Perlukan 2 kali makan untuk hasilkan telur
+            };
+            interactiveObjects.push(poultryData);
+        }
+
+        // --- 4C. MODEL LEMBU (SAPI) ---
+        function createCowModel() {
+            const group = new THREE.Group();
+            const brownMat = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+            const pinkMat = new THREE.MeshLambertMaterial({ color: 0xFFB6C1 });
+            const whiteMat = new THREE.MeshLambertMaterial({ color: 0xFFFFFF });
+            const blackMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+            // Badan (Body)
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.0, 2.0), brownMat);
+            body.position.y = 1.0;
+            body.castShadow = true;
+            group.add(body);
+
+            // Kepala & Leher (Head Group)
+            const headGroup = new THREE.Group();
+            headGroup.position.set(0, 1.4, 1.1);
+            
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), brownMat);
+            head.castShadow = true;
+            headGroup.add(head);
+
+            // Hidung (Snout)
+            const snout = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.4, 0.4), pinkMat);
+            snout.position.set(0, -0.15, 0.4);
+            headGroup.add(snout);
+
+            // Tanduk (Horns)
+            const hornGeo = new THREE.ConeGeometry(0.08, 0.3, 8);
+            const hornL = new THREE.Mesh(hornGeo, whiteMat);
+            hornL.position.set(0.3, 0.4, 0);
+            hornL.rotation.z = -0.2;
+            const hornR = new THREE.Mesh(hornGeo, whiteMat);
+            hornR.position.set(-0.3, 0.4, 0);
+            hornR.rotation.z = 0.2;
+            headGroup.add(hornL, hornR);
+            
+            // Mata (Eyes)
+            const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.05), blackMat);
+            eyeL.position.set(0.36, 0.1, 0.2);
+            const eyeR = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.05), blackMat);
+            eyeR.position.set(-0.36, 0.1, 0.2);
+            headGroup.add(eyeL, eyeR);
+
+            group.add(headGroup);
+            group.userData.head = headGroup; // Untuk animasi mengunyah
+
+            // Kaki (Legs)
+            const legGeo = new THREE.BoxGeometry(0.3, 0.8, 0.3);
+            const legPositions = [
+                [0.4, 0.4, 0.7], [-0.4, 0.4, 0.7], // Depan
+                [0.4, 0.4, -0.7], [-0.4, 0.4, -0.7] // Belakang
+            ];
+            legPositions.forEach(pos => {
+                const leg = new THREE.Mesh(legGeo, brownMat);
+                leg.position.set(...pos);
+                leg.castShadow = true;
+                group.add(leg);
+            });
+
+            // Ekor (Tail)
+            const tail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), brownMat);
+            tail.position.set(0, 1.2, -1.0);
+            tail.rotation.x = -0.3;
+            group.add(tail);
+            group.userData.tail = tail; // Untuk animasi kibas
+
+            return group;
+        }
+
+        function buildCow() {
+            const cowGroup = new THREE.Group();
+            cowGroup.position.set(-7, 0, -4); // Letak di sebelah kiri padang
+            cowGroup.rotation.y = Math.PI / 3;
+            scene.add(cowGroup);
+
+            cowMesh = createCowModel();
+            cowGroup.add(cowMesh);
+
+            // Kotak halimunan untuk butang interaksi (E)
+            const hitBox = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 4), new THREE.MeshBasicMaterial({visible: false}));
+            hitBox.position.set(0, 1, 0);
+            cowGroup.add(hitBox);
+
+            interactiveObjects.push({
+                id: 'sapi',
+                type: 'cow',
+                mesh: cowGroup,
+                state: 'growing',
+                stage: 0,
+                maxStage: 3 // Perlukan 3 kali makan untuk hasilkan susu
+            });
+        }
+
+        // --- 5. PROCEDURAL CHARACTERS ---
+        function createTextureForOpah() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64; canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0,0,64,64);
+            ctx.fillStyle = '#F472B6'; // Bunga pink
+            for(let i=0; i<10; i++){
+                ctx.beginPath();
+                ctx.arc(Math.random()*64, Math.random()*64, 4, 0, Math.PI*2);
+                ctx.fill();
+            }
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function buildPlayerModel(charId) {
+            const group = new THREE.Group();
+            
+            const peach = 0xFFDAB9, tan = 0xD2B48C, light = 0xFFE4E1;
+            
+            let skinColor = peach, shirtColor, pantsColor, hasHair=false, hairColor=0x000000;
+            let hasTurban = false, hasGlasses=false, isOpah=false;
+
+            switch(charId) {
+                case 'upin': shirtColor=0xFBBF24; pantsColor=0x3B82F6; hasHair=true; break;
+                case 'ipin': shirtColor=0x3B82F6; pantsColor=0xFFFFFF; break;
+                case 'mail': shirtColor=0x22C55E; pantsColor=0x78350F; break;
+                case 'meimei': shirtColor=0xF472B6; pantsColor=0xFFFFFF; hasGlasses=true; break;
+                case 'jarjit': skinColor=tan; shirtColor=0xEF4444; pantsColor=0x1E3A8A; hasTurban=true; break;
+                case 'kakros': skinColor=light; shirtColor=0x9333EA; pantsColor=0x4C1D95; break;
+                case 'opah': skinColor=light; isOpah=true; hasGlasses=true; break;
+            }
+
+            const headGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+            const headMat = new THREE.MeshLambertMaterial({ color: skinColor });
+            const head = new THREE.Mesh(headGeo, headMat);
+            head.position.y = 1.4;
+            head.castShadow = true;
+            group.add(head);
+
+            const bodyGeo = new THREE.BoxGeometry(0.7, 0.8, 0.4);
+            let bodyMat;
+            if(isOpah) {
+                bodyMat = new THREE.MeshLambertMaterial({ map: createTextureForOpah() });
+            } else {
+                bodyMat = new THREE.MeshLambertMaterial({ color: shirtColor });
+            }
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 0.6;
+            body.castShadow = true;
+            group.add(body);
+
+            if(charId === 'upin') {
+                const hair = new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.3), new THREE.MeshBasicMaterial({color:0x000000}));
+                hair.position.y = 1.9;
+                group.add(hair);
+            }
+            if(charId === 'mail') {
+                const hair = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.2, 0.85), new THREE.MeshLambertMaterial({color:0x000000}));
+                hair.position.y = 1.8;
+                group.add(hair);
+            }
+            if(hasTurban) {
+                const turban = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16), new THREE.MeshLambertMaterial({color:0xFFFFFF}));
+                turban.position.y = 1.8;
+                group.add(turban);
+            }
+
+            return group;
+        }
+
+        // --- 6. CONTROLS & ANIMATION LOOP ---
+        function setupJoystick() {
+            const zone = document.getElementById('joystick-zone');
+            const knob = document.getElementById('joystick-knob');
+            let isDragging = false;
+            let center = {x:0, y:0};
+
+            zone.addEventListener('pointerdown', e => {
+                isDragging = true;
+                const rect = zone.getBoundingClientRect();
+                center = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+                updateKnob(e);
+            });
+            document.addEventListener('pointermove', e => {
+                if(isDragging) updateKnob(e);
+            });
+            document.addEventListener('pointerup', e => {
+                isDragging = false;
+                knob.style.transform = `translate(0px, 0px)`;
+                moveVector.set(0,0);
+            });
+
+            function updateKnob(e) {
+                let dx = e.clientX - center.x;
+                let dy = e.clientY - center.y;
+                const maxDist = 30;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if(dist > maxDist) {
+                    dx = (dx/dist) * maxDist;
+                    dy = (dy/dist) * maxDist;
+                }
+                
+                knob.style.transform = `translate(${dx}px, ${dy}px)`;
+                moveVector.set(dx/maxDist, dy/maxDist);
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+            const time = clock.getElapsedTime();
+            
+            // Pergerakan Pemain
+            let speed = 4;
+            let vx = 0, vz = 0;
+
+            if(keyState['KeyW'] || keyState['ArrowUp']) vz = -1;
+            if(keyState['KeyS'] || keyState['ArrowDown']) vz = 1;
+            if(keyState['KeyA'] || keyState['ArrowLeft']) vx = -1;
+            if(keyState['KeyD'] || keyState['ArrowRight']) vx = 1;
+
+            if(moveVector.lengthSq() > 0) {
+                vx = moveVector.x;
+                vz = moveVector.y;
+            }
+
+            if(vx !== 0 || vz !== 0) {
+                const len = Math.sqrt(vx*vx + vz*vz);
+                vx /= len; vz /= len;
+
+                player.position.x += vx * speed * dt;
+                player.position.z += vz * speed * dt;
+
+                const angle = Math.atan2(vx, vz);
+                player.rotation.y = angle;
+
+                player.position.y = Math.abs(Math.sin(time * 10)) * 0.2;
+            } else {
+                player.position.y = 0;
+            }
+
+            // Had Sempadan Pemain (Berhenti tepat di pagar kayu)
+            player.position.x = Math.max(-15.2, Math.min(15.2, player.position.x));
+            player.position.z = Math.max(-15.2, Math.min(15.2, player.position.z));
+
+            // Kamera Mengekori
+            const targetCamX = player.position.x;
+            const targetCamZ = player.position.z + 8;
+            const targetCamY = player.position.y + 6;
+            
+            camera.position.x += (targetCamX - camera.position.x) * 5 * dt;
+            camera.position.z += (targetCamZ - camera.position.z) * 5 * dt;
+            camera.position.y += (targetCamY - camera.position.y) * 5 * dt;
+            camera.lookAt(player.position.x, 1, player.position.z);
+
+            // Animasi Ayam Mematuk (Pecking)
+            chickenMeshes.forEach(chicken => {
+                // Formula matematik ringkas: pusing paksi X (tunduk) mengikut masa
+                const peckVal = Math.sin(time * chicken.userData.peckSpeed + chicken.userData.peckOffset);
+                if (peckVal > 0.8) {
+                    chicken.rotation.x = -0.6; // Tunduk patuk tanah
+                } else {
+                    chicken.rotation.x = 0;    // Tegak semula
+                }
+            });
+
+            // Animasi Lembu (Sapi)
+            if (cowMesh) {
+                cowMesh.userData.head.rotation.x = Math.sin(time * 1.5) * 0.1; // Mengunyah / Angguk perlahan
+                cowMesh.userData.tail.rotation.z = Math.sin(time * 3) * 0.2;   // Kibas lalat dengan ekor
+            }
+
+            // Animasi Anak Ayam melompat
+            interactiveObjects.forEach(obj => {
+                if (obj.type === 'chicken' && obj.state === 'chicks' && obj.chickMeshes) {
+                    obj.chickMeshes.children.forEach(chick => {
+                        chick.position.y = Math.abs(Math.sin(time * 6 + chick.userData.jumpOffset)) * 0.2;
+                    });
+                }
+            });
+
+            // Interpolasi watak rakan-rakan yang sedang bermain (Multiplayer)
+            for (let id in otherPlayers) {
+                let op = otherPlayers[id];
+                // Smooth glide pergerakan mereka
+                op.mesh.position.x += (op.targetX - op.mesh.position.x) * 5 * dt;
+                op.mesh.position.z += (op.targetZ - op.mesh.position.z) * 5 * dt;
+                
+                // Halakan muka ke arah pergerakan mereka
+                const diffR = op.targetR - op.mesh.rotation.y;
+                op.mesh.rotation.y += diffR * 5 * dt; 
+                
+                // Kesan animasi lompat kecil bila rakan sedang bergerak (bobbing effect)
+                const dist = Math.abs(op.targetX - op.mesh.position.x) + Math.abs(op.targetZ - op.mesh.position.z);
+                if (dist > 0.1) {
+                    op.mesh.position.y = Math.abs(Math.sin(time * 10)) * 0.2;
+                } else {
+                    op.mesh.position.y = 0;
+                }
+            }
+
+            // Hantar posisi kita ke awan supaya kawan lain boleh lihat
+            if (typeof syncPlayerPosition === 'function') syncPlayerPosition(time);
+
+            checkProximity();
+            renderer.render(scene, camera);
+        }
+
+        // --- 7. INTERACTION LOGIC ---
+        function checkProximity() {
+            let found = null;
+            let minDist = 3; 
+
+            for(let obj of interactiveObjects) {
+                const dist = player.position.distanceTo(obj.mesh.position);
+                if(dist < minDist) {
+                    minDist = dist;
+                    found = obj;
+                }
+            }
+
+            const btn = document.getElementById('btn-interact');
+            const hint = document.getElementById('hint-text');
+
+            if(found) {
+                nearestObject = found;
+                btn.style.display = 'flex';
+                hint.style.display = 'block';
+                if(found.type === 'plot') {
+                    if(found.state === 'empty') btn.innerHTML = '🌱';
+                    else if(found.state === 'growing') btn.innerHTML = '💧';
+                    else btn.innerHTML = '🧺';
+                } else if (found.type === 'chicken') {
+                    btn.innerHTML = '🐔';
+                } else if (found.type === 'cow') {
+                    btn.innerHTML = '🐄';
+                }
+            } else {
+                nearestObject = null;
+                btn.style.display = 'none';
+                hint.style.display = 'none';
+            }
+        }
+
+        function checkInteractionKey(e) {
+            if(e.code === 'KeyE' && nearestObject) {
+                handleInteract();
+            }
+        }
+
+        function handleInteract() {
+            if(!nearestObject) return;
+
+            const title = document.getElementById('action-title');
+            const container = document.getElementById('action-buttons');
+            container.innerHTML = '';
+
+            if(nearestObject.type === 'plot') {
+                const plot = nearestObject;
+                title.textContent = `Batas #${plot.id + 1}`;
+                
+                if(plot.state === 'empty') {
+                    Object.keys(CROPS).forEach(key => {
+                        const c = CROPS[key];
+                        container.innerHTML += `
+                            <button onclick="plantSeed(${plot.id}, '${key}')" class="w-full bg-green-100 border-2 border-green-500 hover:bg-green-200 text-green-800 font-bold p-3 rounded-xl mb-2 flex justify-between">
+                                <span>Tanam ${c.name}</span>
+                                <span>(Matang: ${c.matureTime} thp)</span>
+                            </button>
+                        `;
+                    });
+                } 
+                else if (plot.state === 'growing') {
+                    container.innerHTML += `
+                        <button onclick="tendPlot(${plot.id})" class="w-full bg-blue-100 border-2 border-blue-500 hover:bg-blue-200 text-blue-800 font-bold p-3 rounded-xl mb-2">
+                            💧 Siram Air & Rawat
+                        </button>
+                    `;
+                }
+                else if (plot.state === 'ready') {
+                    container.innerHTML += `
+                        <button onclick="harvestPlot(${plot.id})" class="w-full bg-yellow-100 border-2 border-yellow-500 hover:bg-yellow-200 text-yellow-800 font-bold p-3 rounded-xl mb-2">
+                            🧺 Tuai Hasil (+20 Markah)
+                        </button>
+                    `;
+                }
+            } 
+            else if (nearestObject.type === 'chicken') {
+                title.textContent = "Kumpulan Ayam";
+                if (nearestObject.state === 'growing') {
+                    container.innerHTML += `
+                        <button onclick="tendAnimal('chickens')" class="w-full bg-amber-100 border-2 border-amber-500 hover:bg-amber-200 text-amber-800 font-bold p-3 rounded-xl mb-2">
+                            🌽 Beri Dedak & Pantau (Tahap ${nearestObject.stage}/${nearestObject.maxStage})
+                        </button>
+                    `;
+                } else if (nearestObject.state === 'ready') {
+                    container.innerHTML += `
+                        <button onclick="harvestAnimal('chickens', 'telur')" class="w-full bg-yellow-100 border-2 border-yellow-500 hover:bg-yellow-200 text-yellow-800 font-bold p-3 rounded-xl mb-2">
+                            🥚 Kutip Telur Ayam (+30 Markah)
+                        </button>
+                        <button onclick="harvestAnimal('chickens', 'eram')" class="w-full bg-orange-100 border-2 border-orange-500 hover:bg-orange-200 text-orange-800 font-bold p-3 rounded-xl mb-2">
+                            🐣 Eram Telur (Biakkan)
+                        </button>
+                    `;
+                } else if (nearestObject.state === 'incubating') {
+                    container.innerHTML += `
+                        <button onclick="tendAnimal('chickens')" class="w-full bg-red-100 border-2 border-red-500 hover:bg-red-200 text-red-800 font-bold p-3 rounded-xl mb-2">
+                            💡 Jaga Suhu Eraman (Tahap ${nearestObject.stage}/${nearestObject.maxStage})
+                        </button>
+                    `;
+                } else if (nearestObject.state === 'chicks') {
+                    container.innerHTML += `
+                        <button onclick="tendAnimal('chickens')" class="w-full bg-amber-100 border-2 border-amber-500 hover:bg-amber-200 text-amber-800 font-bold p-3 rounded-xl mb-2">
+                            🐥 Beri Dedak Halus (Tahap ${nearestObject.stage}/${nearestObject.maxStage})
+                        </button>
+                    `;
+                }
+            }
+            else if (nearestObject.type === 'cow') {
+                title.textContent = "Sapi (Lembu Coklat)";
+                if (nearestObject.state === 'growing') {
+                    container.innerHTML += `
+                        <button onclick="tendAnimal('sapi')" class="w-full bg-green-100 border-2 border-green-500 hover:bg-green-200 text-green-800 font-bold p-3 rounded-xl mb-2">
+                            🌾 Beri Rumput & Pantau (Tahap ${nearestObject.stage}/${nearestObject.maxStage})
+                        </button>
+                    `;
+                } else if (nearestObject.state === 'ready') {
+                    container.innerHTML += `
+                        <button onclick="harvestAnimal('sapi', 'susu')" class="w-full bg-blue-100 border-2 border-blue-500 hover:bg-blue-200 text-blue-800 font-bold p-3 rounded-xl mb-2">
+                            🥛 Perah Susu Lembu (+40 Markah)
+                        </button>
+                        <button onclick="harvestAnimal('sapi', 'biak')" class="w-full bg-pink-100 border-2 border-pink-500 hover:bg-pink-200 text-pink-800 font-bold p-3 rounded-xl mb-2">
+                            💕 Biakkan Lembu
+                        </button>
+                    `;
+                } else if (nearestObject.state === 'pregnant') {
+                    container.innerHTML += `
+                        <button onclick="tendAnimal('sapi')" class="w-full bg-pink-100 border-2 border-pink-500 hover:bg-pink-200 text-pink-800 font-bold p-3 rounded-xl mb-2">
+                            🩺 Rawat Ibu Sapi (Tahap ${nearestObject.stage}/${nearestObject.maxStage})
+                        </button>
+                    `;
+                } else if (nearestObject.state === 'calf') {
+                    container.innerHTML += `
+                        <button onclick="tendAnimal('sapi')" class="w-full bg-green-100 border-2 border-green-500 hover:bg-green-200 text-green-800 font-bold p-3 rounded-xl mb-2">
+                            🍼 Beri Susu & Rumput (Tahap ${nearestObject.stage}/${nearestObject.maxStage})
+                        </button>
+                    `;
+                }
+            }
+
+            openModal('modal-action');
+        }
+
+        // --- 8. FARMING ACTIONS ---
+        function createEggsMesh() {
+            const group = new THREE.Group();
+            const eggGeo = new THREE.SphereGeometry(0.12, 16, 16);
+            const eggMat = new THREE.MeshLambertMaterial({color: 0xFFEECC}); // Telur warna krim pucat
+            for(let i=0; i<4; i++) {
+                const egg = new THREE.Mesh(eggGeo, eggMat);
+                egg.scale.set(1, 1.3, 1); // Bentuk bujur telur
+                egg.position.set(Math.cos(i*1.5)*0.5, 0.15, Math.sin(i*1.5)*0.5);
+                egg.castShadow = true;
+                group.add(egg);
+            }
+            return group;
+        }
+
+        function createBucketMesh() {
+            const group = new THREE.Group();
+            const bucketGeo = new THREE.CylinderGeometry(0.25, 0.2, 0.5, 16);
+            const bucketMat = new THREE.MeshLambertMaterial({color: 0x9CA3AF}); // Baldi besi (kelabu)
+            const bucket = new THREE.Mesh(bucketGeo, bucketMat);
+            bucket.position.y = 0.25;
+            bucket.castShadow = true;
+            group.add(bucket);
+            
+            const milkGeo = new THREE.CylinderGeometry(0.23, 0.23, 0.05, 16);
+            const milkMat = new THREE.MeshBasicMaterial({color: 0xFFFFFF}); // Susu putih
+            const milk = new THREE.Mesh(milkGeo, milkMat);
+            milk.position.y = 0.48;
+            group.add(milk);
+            
+            // Letak baldi di tepi sikit (bersebelahan Sapi)
+            group.position.set(1.2, 0, 1.5);
+            return group;
+        }
+
+        function createChicksMesh() {
+            const group = new THREE.Group();
+            const yellowMat = new THREE.MeshLambertMaterial({color: 0xFFFF00});
+            const orangeMat = new THREE.MeshLambertMaterial({color: 0xFFA500});
+
+            for (let i = 0; i < 3; i++) {
+                const chick = new THREE.Group();
+                const body = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), yellowMat);
+                body.position.y = 0.15;
+                body.castShadow = true;
+                chick.add(body);
+                
+                const beak = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.1, 4), orangeMat);
+                beak.rotation.x = Math.PI / 2;
+                beak.position.set(0, 0.18, 0.15);
+                chick.add(beak);
+
+                chick.position.set(Math.cos(i * 2.1) * 0.8, 0, Math.sin(i * 2.1) * 0.8);
+                chick.userData = { jumpOffset: i };
+                group.add(chick);
+            }
+            return group;
+        }
+
+        function createCalfMesh() {
+            const group = new THREE.Group();
+            const calf = createCowModel(); // Guna model lembu yang sama
+            calf.scale.set(0.4, 0.4, 0.4); // Saiz kecil
+            calf.position.set(1.5, 0, 1.5); // Sebelah ibu lembu
+            group.add(calf);
+            return group;
+        }
+
+        function createCropModel(cropType) {
+            const group = new THREE.Group();
+            const greenMat = new THREE.MeshLambertMaterial({ color: 0x2E8B57 }); // Hijau gelap
+            const lightGreenMat = new THREE.MeshLambertMaterial({ color: 0x7CFC00 }); // Hijau terang
+            const redMat = new THREE.MeshLambertMaterial({ color: 0xFF0000 }); // Merah
+            const yellowMat = new THREE.MeshLambertMaterial({ color: 0xFFD700 }); // Kuning
+
+            if (cropType === 'sawi') {
+                // Sawi (Sayur Daun) - Daun leper berpusat di bawah
+                for(let i=0; i<5; i++) {
+                    const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), lightGreenMat);
+                    leaf.scale.set(1, 0.2, 2); // Leperkan jadi daun
+                    leaf.position.set(0, 0.2, 0);
+                    leaf.rotation.y = (i * Math.PI * 2) / 5;
+                    leaf.rotation.x = 0.6; // Condong naik
+                    leaf.castShadow = true;
+                    group.add(leaf);
+                }
+            }
+            else if (cropType === 'tomato') {
+                // Batang
+                const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1), greenMat);
+                stem.position.y = 0.5;
+                group.add(stem);
+                // Rimbunan daun
+                const bush = new THREE.Mesh(new THREE.DodecahedronGeometry(0.4), greenMat);
+                bush.position.y = 0.8;
+                bush.scale.set(1, 0.8, 1);
+                group.add(bush);
+                // Buah Tomato
+                for(let i=0; i<3; i++) {
+                    const fruit = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), redMat);
+                    fruit.position.set(Math.cos(i*2.1)*0.35, 0.6 + i*0.15, Math.sin(i*2.1)*0.35);
+                    group.add(fruit);
+                }
+            }
+            else if (cropType === 'cili') {
+                // Batang
+                const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.8), greenMat);
+                stem.position.y = 0.4;
+                group.add(stem);
+                // Daun
+                const bush = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), greenMat);
+                bush.position.y = 0.7;
+                bush.scale.set(1, 0.5, 1);
+                group.add(bush);
+                // Buah Cili (Tirus ke bawah)
+                for(let i=0; i<4; i++) {
+                    const fruit = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.25, 8), redMat);
+                    fruit.position.set(Math.cos(i*1.5)*0.25, 0.5, Math.sin(i*1.5)*0.25);
+                    fruit.rotation.x = Math.PI; // Tunduk ke bawah
+                    group.add(fruit);
+                }
+            }
+            else if (cropType === 'jagung') {
+                // Batang tinggi
+                const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.5), lightGreenMat);
+                stalk.position.y = 0.75;
+                group.add(stalk);
+                // Daun tajam panjang
+                for(let i=0; i<4; i++) {
+                    const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.8, 4), lightGreenMat);
+                    leaf.position.set(0, 0.4 + i*0.25, 0);
+                    leaf.rotation.z = (i%2===0)? -1.2 : 1.2;
+                    leaf.rotation.y = i * 0.8;
+                    group.add(leaf);
+                }
+                // Tongkol jagung
+                for(let i=0; i<2; i++) {
+                    const cob = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.35), yellowMat);
+                    cob.position.set((i%2===0)? 0.1 : -0.1, 0.6 + i*0.4, 0);
+                    cob.rotation.z = (i%2===0)? -0.2 : 0.2;
+                    group.add(cob);
+                }
+            }
+            
+            // Set saiz lalai anak pokok
+            group.scale.set(0.3, 0.3, 0.3);
+            return group;
+        }
+
+        function plantSeed(plotId, cropKey) {
+            closeModal('modal-action');
+            const plot = plots.find(p => p.id === plotId);
+            plot.state = 'growing';
+            plot.cropType = cropKey;
+            plot.age = 0;
+
+            const c = CROPS[cropKey];
+            
+            // Gunakan model 3D khas dan bukannya kotak
+            plot.plantMesh = createCropModel(cropKey);
+            plot.plantMesh.position.set(plot.mesh.position.x, 0.2, plot.mesh.position.z);
+            scene.add(plot.plantMesh);
+
+            showToast(`🌱 Menanam ${c.name}!`);
+        }
+
+        function tendPlot(plotId) {
+            closeModal('modal-action');
+            const plot = plots.find(p => p.id === plotId);
+            plot.age++;
+            
+            if(Math.random() < 0.4 && plantQuestions.length > 0) {
+                triggerQuiz('plant');
+            } else {
+                showToast("💧 Disiram! Pokok membesar.");
+            }
+
+            const c = CROPS[plot.cropType];
+            if(plot.age >= c.matureTime) {
+                plot.state = 'ready';
+                // Saiz pokok penuh apabila matang
+                plot.plantMesh.scale.set(1.2, 1.2, 1.2); 
+                showToast(`🧺 ${c.name} sedia dituai!`);
+            } else {
+                // Pokok membesar secara berperingkat berdasarkan peratusan umur
+                const scale = 0.3 + ((plot.age / c.matureTime) * 0.9);
+                plot.plantMesh.scale.set(scale, scale, scale);
+            }
+        }
+
+        function harvestPlot(plotId) {
+            closeModal('modal-action');
+            const plot = plots.find(p => p.id === plotId);
+            scene.remove(plot.plantMesh);
+            plot.state = 'empty';
+            plot.cropType = null;
+            plot.plantMesh = null;
+
+            state.score += 20;
+            state.harvestedCount++;
+            updateHUD();
+            showToast("✅ Berjaya dituai! +20 Markah");
+
+            checkLevelUp();
+        }
+
+        function tendAnimal(animalId) {
+            closeModal('modal-action');
+            const animal = interactiveObjects.find(obj => obj.id === animalId);
+            if(!animal) return;
+
+            animal.stage++;
+            
+            const isChicken = animal.type === 'chicken';
+            
+            // Tentukan jenis soalan berdasarkan fasa haiwan
+            let quizType = isChicken ? 'poultry' : 'ruminant';
+            let activeQuizArray = isChicken ? poultryQuestions : ruminantQuestions;
+            let chance = 0.4; // Peluang disoal biasa: 40%
+
+            // Cabaran waktu membesarkan anak (peluang soalan: 75%)
+            if (animal.state === 'incubating' || animal.state === 'chicks') {
+                quizType = 'chick';
+                activeQuizArray = chickQuestions;
+                chance = 0.75; 
+            } else if (animal.state === 'pregnant' || animal.state === 'calf') {
+                quizType = 'calf';
+                activeQuizArray = calfQuestions;
+                chance = 0.75; 
+            }
+            
+            // Rawak cetus masalah (kuiz) semasa menjaga haiwan
+            if (Math.random() < chance && activeQuizArray.length > 0) {
+                triggerQuiz(quizType);
+            } else {
+                if (animal.state === 'growing') {
+                    showToast(isChicken ? "🌽 Ayam gembira makan dedak!" : "🌾 Sapi kenyang makan rumput!");
+                } else if (animal.state === 'incubating') {
+                    showToast("💡 Suhu eraman stabil dan baik!");
+                } else if (animal.state === 'chicks') {
+                    showToast("🐥 Anak ayam makan dengan selera!");
+                } else if (animal.state === 'pregnant') {
+                    showToast("🩺 Ibu sapi sihat dan kuat!");
+                } else if (animal.state === 'calf') {
+                    showToast("🍼 Anak sapi riang minum susu!");
+                }
+            }
+
+            // Semak jika haiwan sudah bersedia ke fasa seterusnya
+            if (animal.stage >= animal.maxStage) {
+                if (animal.state === 'growing') {
+                    animal.state = 'ready';
+                    showToast(isChicken ? "🥚 Telur ayam sedia untuk dikutip atau dieram!" : "🥛 Susu lembu sedia untuk diperah!");
+                    
+                    if (isChicken && !animal.productMesh) {
+                        animal.productMesh = createEggsMesh();
+                        animal.mesh.add(animal.productMesh);
+                    } else if (!isChicken && !animal.productMesh) {
+                        animal.productMesh = createBucketMesh();
+                        animal.mesh.add(animal.productMesh);
+                    }
+                }
+                else if (animal.state === 'incubating') {
+                    animal.state = 'chicks';
+                    animal.stage = 0;
+                    animal.maxStage = 3; // Anak ayam perlukan 3 kali makan untuk besar
+                    
+                    if (animal.productMesh) {
+                        animal.mesh.remove(animal.productMesh);
+                        animal.productMesh = null;
+                    }
+                    animal.chickMeshes = createChicksMesh();
+                    animal.mesh.add(animal.chickMeshes);
+                    showToast("🐣 Telur menetas! Terus berikan dedak halus.");
+                }
+                else if (animal.state === 'chicks') {
+                    animal.state = 'growing';
+                    animal.stage = 0;
+                    animal.maxStage = 2; // Kembali ke fasa bertelur
+                    
+                    if (animal.chickMeshes) {
+                        animal.mesh.remove(animal.chickMeshes);
+                        animal.chickMeshes = null;
+                    }
+                    // Tambah ayam dewasa baru (maksimum tambah 3 kali supaya tak penuh sangat)
+                    if (chickenMeshes.length < 6) {
+                        const newChicken = createChickenModel(0xFFD700); // Ayam Emas!
+                        newChicken.position.set(Math.cos(chickenMeshes.length * 2) * 1.5, 0, Math.sin(chickenMeshes.length * 2) * 1.5);
+                        animal.mesh.add(newChicken);
+                        chickenMeshes.push(newChicken);
+                    }
+
+                    state.score += 100;
+                    updateHUD();
+                    showToast("🐓 Anak ayam dah besar! Kumpulan makin ramai. +100 Markah");
+                }
+                else if (animal.state === 'pregnant') {
+                    animal.state = 'calf';
+                    animal.stage = 0;
+                    animal.maxStage = 3; // Anak lembu perlukan 3 kali jagaan untuk besar
+                    
+                    animal.calfMesh = createCalfMesh();
+                    animal.mesh.add(animal.calfMesh);
+                    showToast("🐄 Sapi dah beranak! Jaga anak lembu ini.");
+                }
+                else if (animal.state === 'calf') {
+                    animal.state = 'growing';
+                    animal.stage = 0;
+                    animal.maxStage = 3; // Kembali ke fasa pemerahan
+                    
+                    if (animal.calfMesh) {
+                        animal.mesh.remove(animal.calfMesh);
+                        animal.calfMesh = null;
+                    }
+                    // Tambah lembu dewasa baru sebelah lembu asal
+                    const newCow = createCowModel();
+                    newCow.scale.set(0.85, 0.85, 0.85); // Sedikit kecil dari ibu
+                    newCow.position.set(2 + Math.random(), 0, 2 + Math.random());
+                    newCow.rotation.y = Math.random();
+                    animal.mesh.add(newCow);
+
+                    state.score += 150;
+                    updateHUD();
+                    showToast("🐃 Anak lembu dah besar! +150 Markah");
+                }
+            }
+        }
+
+        function harvestAnimal(animalId, actionType) {
+            closeModal('modal-action');
+            const animal = interactiveObjects.find(obj => obj.id === animalId);
+            if(!animal) return;
+
+            if (actionType === 'telur' || actionType === 'susu') {
+                animal.state = 'growing';
+                animal.stage = 0; // Reset kitaran pembesaran
+                
+                // Buang objek 3D (Telur / Baldi) lepas berjaya kutip
+                if (animal.productMesh) {
+                    animal.mesh.remove(animal.productMesh);
+                    animal.productMesh = null;
+                }
+
+                const isChicken = animal.type === 'chicken';
+                const pts = isChicken ? 30 : 40;
+                state.score += pts;
+                
+                // Hasil kutipan haiwan juga membantu dalam menaikkan Tahap (Level Up)!
+                state.harvestedCount++; 
+                
+                updateHUD();
+                showToast(`✅ Berjaya mengutip hasil ${isChicken ? 'Telur' : 'Susu'}! +${pts} Markah`);
+                
+                checkLevelUp();
+            }
+            else if (actionType === 'eram') {
+                animal.state = 'incubating';
+                animal.stage = 0;
+                animal.maxStage = 2; // Perlu 2 tahap eraman
+                showToast("🔥 Mula mengeram telur. Pastikan suhu terjaga!");
+            }
+            else if (actionType === 'biak') {
+                animal.state = 'pregnant';
+                animal.stage = 0;
+                animal.maxStage = 3; // Perlu 3 tahap bunting
+                
+                if (animal.productMesh) {
+                    animal.mesh.remove(animal.productMesh);
+                    animal.productMesh = null;
+                }
+                showToast("💕 Sapi sedang bunting. Berikan penjagaan rapi!");
+            }
+        }
+
+        // --- 9. QUIZ SYSTEM ---
+        let currentQuizAnswer = 0;
+
+        function triggerQuiz(type) {
+            closeModal('modal-action');
+            
+            let qArray = plantQuestions;
+            if (type === 'poultry') qArray = poultryQuestions;
+            else if (type === 'ruminant') qArray = ruminantQuestions;
+            else if (type === 'chick') qArray = chickQuestions;
+            else if (type === 'calf') qArray = calfQuestions;
+
+            if(qArray.length === 0) {
+                showToast("Tiada masalah lagi. Semua sihat!");
+                return; 
+            }
+
+            const rIdx = Math.floor(Math.random() * qArray.length);
+            const qObj = qArray[rIdx];
+            
+            qArray.splice(rIdx, 1);
+
+            document.getElementById('quiz-question').textContent = qObj.q;
+            currentQuizAnswer = qObj.ans;
+
+            const optsDiv = document.getElementById('quiz-options');
+            optsDiv.innerHTML = '';
+            
+            qObj.options.forEach((optText, i) => {
+                optsDiv.innerHTML += `
+                    <button onclick="answerQuiz(${i})" class="w-full bg-stone-100 border-2 border-stone-300 hover:bg-amber-100 hover:border-amber-500 font-bold p-3 rounded-xl text-stone-800 transition text-left">
+                        ${String.fromCharCode(65+i)}. ${optText}
+                    </button>
+                `;
+            });
+
+            openModal('modal-quiz');
+        }
+
+        function answerQuiz(selectedIdx) {
+            closeModal('modal-quiz');
+            if(selectedIdx === currentQuizAnswer) {
+                state.score += 15;
+                showToast("✅ TEPAT! +15 Markah. Masalah selesai.");
+            } else {
+                state.score = Math.max(0, state.score - 5);
+                showToast("❌ SALAH! -5 Markah. Fakta Sains itu penting!");
+            }
+            updateHUD();
+        }
+
+        // --- 10. LEVEL PROGRESSION ---
+        function checkLevelUp() {
+            if(state.harvestedCount >= state.totalPlots) {
+                setTimeout(() => openModal('modal-levelup'), 1000);
+            }
+        }
+
+        function nextLevel() {
+            closeModal('modal-levelup');
+            state.level++;
+            state.harvestedCount = 0;
+            state.score += 50; 
+            updateHUD();
+            
+            showToast(`🚀 Naik ke Tahap ${state.level}! Batas ditambah.`);
+            buildPlots(state.level); 
+        }
+
+    </script>
+</body>
+</html>
